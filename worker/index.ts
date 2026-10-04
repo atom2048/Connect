@@ -29,6 +29,7 @@ import { controlFetch } from './ai/control-plane';
 import { AiPredeployError, runAiPredeploy } from './ai/predeploy';
 import { createMediaAccessTicket, verifyMediaAccessTicket } from './mediaAccess';
 import { parseMediaByteRange, resolveMediaByteRange } from './mediaRange';
+import { canonicalPostMediaKey, postMediaObjectKeys, resolveLegacyMediaObjects } from './legacyMedia';
 import { createCommentRecord, createPostRecord, markImportedPostDeleted, recordPollVote, replaceImportedMedia, updateImportedPostVisibility, upsertImportedComment, upsertImportedPost } from './repositories/content';
 import { handleModerationRequest } from './moderation';
 import { resolveAvatarURL } from '../src/avatar.ts';
@@ -313,8 +314,13 @@ async function postDetail(request: Request, env: Env, postId: string): Promise<R
   // Firestore is still the write path for the legacy client. Mirror a missing
   // row after applying the same viewer ACL so R2 attachments can receive the
   // post-scoped media tickets used by image and video requests.
-  if (!post && env.FIREBASE_PROJECT_ID) {
-    await syncFirebasePost(request, env, postId, undefined, undefined, 20, false);
+  const needsMediaRepair = post && (!Array.isArray(post.media) || !post.media.length || post.media.some((item: unknown) => {
+    if (!item || typeof item !== 'object') return true;
+    const value = item as Record<string, unknown>;
+    return typeof value.url !== 'string' || !/^\/media\/(posts|migration)\//.test(value.url);
+  }));
+  if ((!post || needsMediaRepair) && env.FIREBASE_PROJECT_ID) {
+    await syncFirebasePost(request, env, postId, undefined, undefined, 20, false, Boolean(needsMediaRepair));
     result = await queryPosts(ctx, viewer?.id ?? null, { cursor: null, limit: 1, postId });
     post = result.rows[0];
   }
@@ -481,6 +487,7 @@ function safeProtectedMediaKey(key: string): boolean {
 export async function media(request: Request, env: Env, key: string): Promise<Response> {
   if (!env.MEDIA) return error('media_unavailable', 503);
   if (request.method === 'GET' || request.method === 'HEAD') {
+    key = canonicalPostMediaKey(key) || key;
     const protectedMedia = key.startsWith('migration/') || key.startsWith('posts/');
     if (protectedMedia) {
       if (!requireDb(env) || !safeProtectedMediaKey(key)) return error('media_not_found', 404);
@@ -525,7 +532,11 @@ export async function media(request: Request, env: Env, key: string): Promise<Re
       if (!visibleReference) return error('media_not_found', 404);
     }
     if (request.method === 'HEAD') {
-      const metadata = await env.MEDIA.head(key);
+      let metadata: R2Object | null = null;
+      for (const candidate of postMediaObjectKeys(key)) {
+        metadata = await env.MEDIA.head(candidate);
+        if (metadata) break;
+      }
       if (!metadata) return error('media_not_found', 404);
       const headers = new Headers();
       metadata.writeHttpMetadata(headers);
@@ -538,9 +549,16 @@ export async function media(request: Request, env: Env, key: string): Promise<Re
     }
     const requestedRange = parseMediaByteRange(request.headers.get('range'));
     const rangeRequested = Boolean(requestedRange);
-    const object = await env.MEDIA.get(key, requestedRange ? { range: requestedRange } : undefined);
+    let object: R2ObjectBody | null = null;
+    let metadata: R2Object | null = null;
+    for (const candidate of postMediaObjectKeys(key)) {
+      metadata = await env.MEDIA.head(candidate);
+      if (!metadata) continue;
+      // Do not try the other namespace when the object exists but its range is unsatisfiable.
+      object = await env.MEDIA.get(candidate, requestedRange ? { range: requestedRange } : undefined);
+      break;
+    }
     if (!object && rangeRequested) {
-      const metadata = await env.MEDIA.head(key);
       if (!metadata) return error('media_not_found', 404);
       const headers = new Headers();
       metadata.writeHttpMetadata(headers);
@@ -795,7 +813,7 @@ function firestoreMedia(record: ImportRecord): Array<Record<string, unknown>> {
     if (!value.startsWith('/media/')) return false;
     const key = value.split(/[?#]/, 1)[0].slice('/media/'.length);
     if (key.startsWith('migration/')) return safeProtectedMediaKey(key);
-    return key.startsWith('posts/') && safeProtectedMediaKey(key) && key.split('/')[1] === authorId;
+    return Boolean(canonicalPostMediaKey(key, authorId));
   };
   const allowedNestedR2Route = (value: string): boolean => {
     if (!value.startsWith('/media/')) return false;
@@ -915,7 +933,7 @@ async function legacyPostViewerCanRead(db: D1Database, viewerId: string | null, 
   return Boolean(row);
 }
 
-export async function syncFirebasePost(request: Request, env: Env, postId: string, correlationId?: string, expectedAuthorId?: string, maxMediaItems = 4, requireAiConsent = false): Promise<{
+export async function syncFirebasePost(request: Request, env: Env, postId: string, correlationId?: string, expectedAuthorId?: string, maxMediaItems = 4, requireAiConsent = false, repairMedia = false): Promise<{
   synced: boolean;
   sourceUnavailable?: boolean;
   diagnostic?: { visibility: string | null; ownerMatch: boolean | null; normalViewAllowed: boolean | null; aiAllowed: boolean; imageConsentAllowed: boolean | null; denyReason: string };
@@ -1003,7 +1021,7 @@ export async function syncFirebasePost(request: Request, env: Env, postId: strin
         denyReason: 'AUTHOR_AI_CONSENT_DISABLED',
       } };
     }
-    if (existing?.firestore_update_time === metadataUpdateTime) {
+    if (existing?.firestore_update_time === metadataUpdateTime && !repairMedia) {
       trace('source_unchanged', { visibility: metadataVisibility, aclChecked: true, imageConsentAllowed: consent.allowMedia });
       return { synced: true };
     }
@@ -1056,7 +1074,7 @@ export async function syncFirebasePost(request: Request, env: Env, postId: strin
       trace('acl_changed_before_sync', { hasViewer: Boolean(viewer), visibility });
       return { synced: false };
     }
-    const mediaItems = sourceMedia.slice(0, Math.max(0, Math.min(4, Math.floor(maxMediaItems))));
+    const mediaItems = await resolveLegacyMediaObjects(env, authorId, sourceMedia.slice(0, Math.max(0, Math.min(requireAiConsent ? 4 : 20, Math.floor(maxMediaItems)))));
     const media = await copyMediaArray(env, postId, JSON.stringify(mediaItems), true, 5 * 1024 * 1024);
     if (media.failed) { trace('media_copy_failed', { failed: media.failed }); return { synced: false }; }
     const totalBytes = (() => {
@@ -1064,7 +1082,14 @@ export async function syncFirebasePost(request: Request, env: Env, postId: strin
         return (JSON.parse(media.json || '[]') as Array<Record<string, unknown>>).reduce((sum, item) => sum + (typeof item.bytes === 'number' && Number.isFinite(item.bytes) ? item.bytes : 0), 0);
       } catch { return Number.POSITIVE_INFINITY; }
     })();
-    if (totalBytes > 20 * 1024 * 1024) { trace('media_too_large'); return { synced: false }; }
+    if (requireAiConsent && totalBytes > 20 * 1024 * 1024) { trace('media_too_large'); return { synced: false }; }
+    if (repairMedia && existing?.firestore_update_time === metadataUpdateTime) {
+      if (existing.media_json !== media.json) {
+        await replaceImportedMedia(syncContext, postId, JSON.parse(media.json || '[]'));
+      }
+      trace('media_repaired', { mediaCount: mediaItems.length, aclChecked: true });
+      return { synced: true };
+    }
     const createdAt = safeDate(record.createdAt);
     await run(syncContext, `INSERT OR IGNORE INTO profiles(id, display_name, username, avatar_color, created_at, updated_at)
       VALUES(?, 'Connect user', ?, '#4f46e5', ?, ?)`, [authorId, usernameFor({ id: authorId }, authorId), createdAt, createdAt]);
@@ -1472,7 +1497,19 @@ async function route(request: Request, env: Env): Promise<Response> {
   }
   if (path === '/api/posts' && request.method === 'POST') return createPost(request, env);
   const mediaMatch = path.match(/^\/media\/(.+)$/);
-  if (mediaMatch) return media(request, env, decodeURIComponent(mediaMatch[1]));
+  if (mediaMatch) {
+    const key = decodeURIComponent(mediaMatch[1]);
+    const response = await media(request, env, key);
+    const keyDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonicalPostMediaKey(key) || key));
+    console.log(JSON.stringify({
+      event: 'media_delivery', requestId: request.headers.get('cf-ray'),
+      keyHash: [...new Uint8Array(keyDigest)].map(v => v.toString(16).padStart(2, '0')).join(''),
+      method: request.method, range: request.headers.get('range'), status: response.status,
+      contentType: response.headers.get('content-type'), contentRange: response.headers.get('content-range'),
+      contentLength: response.headers.get('content-length'),
+    }));
+    return response;
+  }
   if (path.startsWith('/api/')) return error('not_found', 404);
   return env.ASSETS ? env.ASSETS.fetch(request) : error('not_found', 404);
 }
