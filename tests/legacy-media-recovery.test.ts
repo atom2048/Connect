@@ -73,6 +73,26 @@ describe('legacy media recovery', () => {
     const result = await syncFirebasePost(new Request('https://worker.invalid/api/posts/post'), env, 'post', undefined, undefined, 20, false, true);
     expect(result.synced).toBe(true);expect(writes).toHaveLength(1);expect(writes[0]).toContain('UPDATE posts SET media_json');expect(writes[0]).not.toContain('body');expect(env.MEDIA!.put).not.toHaveBeenCalled();
   });
+  it('restarts the source and ACL checks when a view update races with normal media synchronization', async () => {
+    const writes: string[] = [];
+    const env = { FIREBASE_PROJECT_ID: 'synthetic-project', MEDIA: { head: async () => metadata, put: vi.fn() }, DB: { prepare(sql: string) { return { bind() { return {
+      async first() {
+        if (sql.startsWith('SELECT author_id,visibility')) return { author_id: 'owner', visibility: 'public', firestore_update_time: 'new', media_json: '[]' };
+        if (sql.startsWith('SELECT 1 AS allowed')) return { allowed: 1 };
+        return null;
+      }, async run() { writes.push(sql); return { success: true, meta: { changes: 1 } }; },
+    }; } }; } } } as unknown as Env;
+    let reads = 0;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+      const full = !String(input).includes('mask.fieldPaths');
+      reads++;
+      return new Response(JSON.stringify({ updateTime: reads === 1 ? 'old' : 'new', fields: {
+        userId: { stringValue: 'owner' }, visibility: { stringValue: 'public' }, ...(full ? { text: { stringValue: 'Body' }, imageURLs: { arrayValue: { values: [{ stringValue: source }] } } } : {}),
+      } }));
+    });
+    const result = await syncFirebasePost(new Request('https://worker.invalid/api/posts/post'), env, 'post', undefined, undefined, 20, false, true);
+    expect(result.synced).toBe(true);expect(reads).toBe(4);expect(writes).toHaveLength(1);expect(writes[0]).toContain('UPDATE posts SET media_json');
+  });
   it('rejects a range beyond the object before calling the real R2 API, which throws for this range', async () => {
     const get = vi.fn(async () => { throw new Error('R2 range not satisfiable'); });
     const env = { MEDIA: { head: async () => metadata, get }, DB: { prepare: () => ({ bind: () => ({ first: async () => ({ allowed: 1 }) }) }) } } as unknown as Env;

@@ -320,9 +320,10 @@ async function postDetail(request: Request, env: Env, postId: string): Promise<R
     return typeof value.url !== 'string' || !/^\/media\/(posts|migration)\//.test(value.url);
   }));
   if ((!post || needsMediaRepair) && env.FIREBASE_PROJECT_ID) {
-    await syncFirebasePost(request, env, postId, undefined, undefined, 20, false, Boolean(needsMediaRepair));
+    const sync = await syncFirebasePost(request, env, postId, undefined, undefined, 20, false, Boolean(needsMediaRepair));
     result = await queryPosts(ctx, viewer?.id ?? null, { cursor: null, limit: 1, postId });
     post = result.rows[0];
+    if (!post && sync.sourceUnavailable) return error('post_source_unavailable', 503, ctx.reads);
   }
   if (!post) return error('post_not_found', 404, ctx.reads);
   const comments = await all<Record<string, unknown>>(ctx, `SELECT c.*, pr.id AS author_profile_id, pr.display_name AS author_name, pr.username AS author_username, pr.avatar_url AS author_avatar_url, pr.avatar_color AS author_avatar_color
@@ -934,7 +935,7 @@ async function legacyPostViewerCanRead(db: D1Database, viewerId: string | null, 
   return Boolean(row);
 }
 
-export async function syncFirebasePost(request: Request, env: Env, postId: string, correlationId?: string, expectedAuthorId?: string, maxMediaItems = 4, requireAiConsent = false, repairMedia = false): Promise<{
+export async function syncFirebasePost(request: Request, env: Env, postId: string, correlationId?: string, expectedAuthorId?: string, maxMediaItems = 4, requireAiConsent = false, repairMedia = false, sourceRetry = 0): Promise<{
   synced: boolean;
   sourceUnavailable?: boolean;
   diagnostic?: { visibility: string | null; ownerMatch: boolean | null; normalViewAllowed: boolean | null; aiAllowed: boolean; imageConsentAllowed: boolean | null; denyReason: string };
@@ -1045,6 +1046,12 @@ export async function syncFirebasePost(request: Request, env: Env, postId: strin
         await updateImportedPostVisibility(syncContext, postId, authorId, visibility);
       }
       trace('record_rejected', { reason, hasAuthor: Boolean(authorId), visibility: visibility || 'unknown' });
+      // A normal post view can increment viewCount between metadata and content
+      // reads. Restart both reads and ACL checks once; never import the stale
+      // snapshot or bypass a changed owner/visibility.
+      if (reason === 'SOURCE_CHANGED_DURING_SYNC' && !requireAiConsent && sourceRetry < 1) {
+        return syncFirebasePost(request, env, postId, correlationId, expectedAuthorId, maxMediaItems, requireAiConsent, repairMedia, sourceRetry + 1);
+      }
       return { synced: false, sourceUnavailable: reason === 'SOURCE_CHANGED_DURING_SYNC' };
     }
     const existingMedia = (() => {
