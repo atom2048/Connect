@@ -25,7 +25,7 @@ import {
 import { classifyStartupError, singleFlight, withTimeout } from './startupResilience.ts';
 import { getActiveStartupTraceSession } from './startupTrace.ts';
 import { mergeLatestDisplayProfile } from './avatar.ts';
-import { canonicalPostMediaURLFromPostMedia, postMediaHasStoragePath, storagePathFromMediaURL, type PostMediaKind } from './videoMedia.ts';
+import { canonicalPostMediaURLFromPostMedia, isProtectedPostMediaRoute, postMediaHasStoragePath, storagePathFromMediaURL, type PostMediaKind } from './videoMedia.ts';
 
 type FirestoreWriteValue =
   | string
@@ -1749,10 +1749,6 @@ function currentOriginMediaRoute(candidate: string): string {
   } catch {
     return '';
   }
-}
-
-function isProtectedPostMediaRoute(route: string): boolean {
-  return /^\/media\/(?:migration|posts)\//.test(route);
 }
 
 function lookupPostMedia(postId: string): Promise<PostMediaLookup> {

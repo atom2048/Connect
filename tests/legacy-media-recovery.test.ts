@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Env } from '../worker/types';
 import { canonicalPostMediaKey, resolveLegacyMediaObjects } from '../worker/legacyMedia';
+import { canonicalPostMediaURLFromPostMedia, isProtectedPostMediaRoute } from '../src/videoMedia';
 vi.mock('cloudflare:workers', () => ({ DurableObject: class {} }));
 vi.mock('../worker/auth', () => ({ getViewer: vi.fn(async () => ({ viewer: null })) }));
 const { media, syncFirebasePost } = await import('../worker/index');
@@ -9,6 +10,13 @@ const source = 'https://firebasestorage.googleapis.com/v0/b/synthetic-project.fi
 const metadata = { size: 64, httpMetadata: { contentType: 'image/png' }, httpEtag: 'etag', writeHttpMetadata(h: Headers) { h.set('Content-Type', 'image/png'); } };
 
 describe('legacy media recovery', () => {
+  it('sends both upload namespaces through post lookup and matches the same object identity', () => {
+    expect(isProtectedPostMediaRoute('/media/owner/image.png')).toBe(true);
+    expect(isProtectedPostMediaRoute('/media/posts/owner/image.png')).toBe(true);
+    expect(isProtectedPostMediaRoute('/media/profiles/owner/avatar.png')).toBe(false);
+    const resolved = canonicalPostMediaURLFromPostMedia([{ kind: 'image', url: '/media/posts/owner/image.png?ticket=current', objectKey: 'posts/owner/image.png' }], '/media/owner/image.png', 'image');
+    expect(resolved).toBe('/media/posts/owner/image.png?ticket=current');
+  });
   it('normalizes both namespaces without trusting another owner or path traversal', () => {
     expect(canonicalPostMediaKey('owner/image.png', 'owner')).toBe('posts/owner/image.png');
     expect(canonicalPostMediaKey('posts/owner/image.png', 'owner')).toBe('posts/owner/image.png');
@@ -64,5 +72,11 @@ describe('legacy media recovery', () => {
     });
     const result = await syncFirebasePost(new Request('https://worker.invalid/api/posts/post'), env, 'post', undefined, undefined, 20, false, true);
     expect(result.synced).toBe(true);expect(writes).toHaveLength(1);expect(writes[0]).toContain('UPDATE posts SET media_json');expect(writes[0]).not.toContain('body');expect(env.MEDIA!.put).not.toHaveBeenCalled();
+  });
+  it('rejects a range beyond the object before calling the real R2 API, which throws for this range', async () => {
+    const get = vi.fn(async () => { throw new Error('R2 range not satisfiable'); });
+    const env = { MEDIA: { head: async () => metadata, get }, DB: { prepare: () => ({ bind: () => ({ first: async () => ({ allowed: 1 }) }) }) } } as unknown as Env;
+    const response = await media(new Request('https://worker.invalid/media/posts/owner/image.png', { headers: { Range: 'bytes=999-' } }), env, 'posts/owner/image.png');
+    expect(response.status).toBe(416);expect(response.headers.get('Content-Range')).toBe('bytes */64');expect(get).not.toHaveBeenCalled();
   });
 });

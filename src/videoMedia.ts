@@ -40,6 +40,16 @@ export function storagePathFromMediaURL(value: string): string {
 
 export type PostMediaKind = 'image' | 'video';
 
+/** Old uid/file routes need the same post-scoped lookup as posts/uid/file routes. */
+export function isProtectedPostMediaRoute(route: string): boolean {
+  if (/^\/media\/(?:migration|posts)\//.test(route)) return true;
+  const key = storagePathFromMediaURL(route);
+  const [owner, ...path] = key.split('/');
+  return route.startsWith('/media/') && !['profiles', 'legacy'].includes(owner)
+    && /^[A-Za-z0-9_-]{1,160}$/.test(owner) && path.length > 0 && path[0] !== 'profiles'
+    && path.every(part => Boolean(part) && part !== '.' && part !== '..' && /^[A-Za-z0-9_.-]+$/.test(part));
+}
+
 function mediaKind(item: StoredMedia, sourceURL: string): PostMediaKind | '' {
   const kind = typeof item.kind === 'string' ? item.kind.toLowerCase() : '';
   const mime = typeof item.mimeType === 'string' ? item.mimeType : typeof item.sourceType === 'string' ? item.sourceType : '';
@@ -74,6 +84,7 @@ function mediaStoragePaths(item: StoredMedia): string[] {
 function comparableStoragePath(value: string): string {
   const normalized = decodePath(value).replace(/\\/g, '/').split(/[?#]/, 1)[0];
   const parts = normalized.split('/');
+  if (parts[0] !== 'posts' && !['migration', 'profiles', 'legacy'].includes(parts[0])) parts.unshift('posts');
   const filename = parts.pop() || '';
   const stem = filename
     .replace(/\.[^.]+$/, '')

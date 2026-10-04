@@ -555,6 +555,7 @@ export async function media(request: Request, env: Env, key: string): Promise<Re
       metadata = await env.MEDIA.head(candidate);
       if (!metadata) continue;
       // Do not try the other namespace when the object exists but its range is unsatisfiable.
+      if (requestedRange && !resolveMediaByteRange(requestedRange, metadata.size)) break;
       object = await env.MEDIA.get(candidate, requestedRange ? { range: requestedRange } : undefined);
       break;
     }
