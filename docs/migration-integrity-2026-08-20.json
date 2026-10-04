@@ -1,0 +1,36 @@
+{
+  "checkedAt": "2026-08-20T14:35:41.024Z",
+  "baseUrl": "https://connect-social.akihiro152525.chatgpt.site",
+  "status": 200,
+  "body": {
+    "ok": true,
+    "counts": {
+      "profiles": 14,
+      "posts": 493,
+      "comments": 254,
+      "fts": 493,
+      "auth_users": 14
+    },
+    "checks": {
+      "posts_without_profile": 0,
+      "invalid_visibility": 0,
+      "legacy_media": 0,
+      "posts_without_fts": 0
+    },
+    "queryPlan": [
+      {
+        "id": 6,
+        "parent": 0,
+        "notused": 62,
+        "detail": "SEARCH p USING INDEX posts_visibility_idx (visibility=?)"
+      },
+      {
+        "id": 13,
+        "parent": 0,
+        "notused": 44,
+        "detail": "SEARCH pr USING COVERING INDEX sqlite_autoindex_profiles_1 (id=?)"
+      }
+    ],
+    "pass": true
+  }
+}

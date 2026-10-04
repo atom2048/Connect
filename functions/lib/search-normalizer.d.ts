@@ -1,0 +1,13 @@
+export const SEARCH_SCHEMA_VERSION: number;
+export const SEARCH_NORMALIZER_VERSION: number;
+export const MAX_SEARCH_TERMS: number;
+export const MAX_SEARCH_TOKEN_COUNT: number;
+export function codePointLength(value: unknown): number;
+export function utf8ByteLength(value: unknown): number;
+export function normalizeSearchText(value: unknown): string;
+export function normalizeHashtagKey(value: unknown): string;
+export function extractHashtagKeys(value: unknown): string[];
+export function parseSingleHashtagQuery(value: unknown): { key: string; query: string } | null;
+export function splitSearchTerms(value: unknown): string[];
+export function generateSearchTokens(value: unknown): string[];
+export function chooseSearchAnchor(value: unknown): { mode: 'text' | 'hashtag'; anchor: string; terms: string[]; hashtagKey: string | null } | null;

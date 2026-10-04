@@ -1,0 +1,56 @@
+{
+  "checkedAt": "2026-08-30T19:41:48.439Z",
+  "baseUrl": "https://connect-social-standalone.quest-live.workers.dev",
+  "status": 200,
+  "expectedCounts": {
+    "profiles": 2,
+    "posts": 5,
+    "comments": 1
+  },
+  "body": {
+    "ok": true,
+    "counts": {
+      "profiles": 2,
+      "posts": 5,
+      "comments": 1,
+      "fts": 5,
+      "auth_users": 2
+    },
+    "checks": {
+      "posts_without_profile": 0,
+      "invalid_visibility": 0,
+      "legacy_media": 0,
+      "posts_without_fts": 0,
+      "missing_quote_targets": 0,
+      "missing_reply_targets": 0,
+      "missing_thread_roots": 0,
+      "missing_comment_parents": 0
+    },
+    "expectedChecks": {
+      "profiles_expected": 2,
+      "profiles_found": 2,
+      "profiles_missing": 0,
+      "posts_expected": 5,
+      "posts_found": 5,
+      "posts_missing": 0,
+      "comments_expected": 1,
+      "comments_found": 1,
+      "comments_missing": 0
+    },
+    "queryPlan": [
+      {
+        "id": 6,
+        "parent": 0,
+        "notused": 62,
+        "detail": "SEARCH p USING INDEX posts_visibility_idx (visibility=?)"
+      },
+      {
+        "id": 13,
+        "parent": 0,
+        "notused": 44,
+        "detail": "SEARCH pr USING COVERING INDEX sqlite_autoindex_profiles_1 (id=?)"
+      }
+    ],
+    "pass": true
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "ttlPolicies": [
+    { "collectionGroup": "pushDeliveries", "field": "expiresAt", "retentionDays": 90 },
+    { "collectionGroup": "pushSubscriptions", "field": "expiresAt", "retentionDays": 90 },
+    { "collectionGroup": "pushDeliveryDeadLetters", "field": "expiresAt", "retentionDays": 90 },
+    { "collectionGroup": "pushSubscriptionRateLimits", "field": "expiresAt", "retentionDays": 2 }
+  ],
+  "note": "TTL is retention cleanup only. Worker expiry checks remain authoritative; parent deletion does not delete subcollections."
+}

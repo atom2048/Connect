@@ -1,0 +1,15 @@
+{
+  "id": "/",
+  "name": "Connect",
+  "short_name": "Connect",
+  "description": "友達とつながる新しいSNS",
+  "start_url": "/#/feed",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "icons": [
+    { "src": "/connect-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/connect-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "frozenBeforePreflightB": true,
+  "preflightB": {
+    "minimumSamplesPerQueryClass": 100,
+    "maxP95LatencyMs": 1200,
+    "maxP99LatencyMs": 2500,
+    "maxIndexDocumentBytes": 900000,
+    "minimumDocumentHeadroomBytes": 148576,
+    "maxIndexEntriesPerDocument": 20000,
+    "minimumIndexHeadroomEntries": 20000,
+    "maxCandidateReadsPerRequest": 101,
+    "maxCommonQueryScanLimitReachedRate": 0.1,
+    "maxScanToReturnRatio": 50,
+    "maxProjectedFunctionInvocationsPerDay": 10000,
+    "maxGoldenFalseNegatives": 0
+  },
+  "scanBudgets": {
+    "preview": 50,
+    "full": 100
+  },
+  "queryClasses": ["common-2-code-point", "common-3-code-point", "rare", "japanese", "multi-term", "hashtag"]
+}

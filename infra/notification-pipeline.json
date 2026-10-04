@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "projectIdEnv": "GCLOUD_PROJECT",
+  "regionEnv": "FIREBASE_FUNCTIONS_REGION",
+  "queues": [
+    {
+      "nameEnv": "PUSH_DELIVERY_QUEUE",
+      "defaultName": "push-delivery",
+      "purpose": "Push expansion and subscription-level Web Push delivery",
+      "retry": {
+        "maxAttempts": 8,
+        "maxRetryDurationSeconds": 21600,
+        "minBackoffSeconds": 30,
+        "maxBackoffSeconds": 1800
+      },
+      "rateLimits": {
+        "maxConcurrentDispatches": 8,
+        "maxDispatchesPerSecond": 20
+      },
+      "dispatchDeadlineSeconds": 20,
+      "worker": "processPushDeliveryTask",
+      "taskKinds": ["expand", "send"]
+    }
+  ],
+  "scheduler": {
+    "function": "reconcileNotificationPipeline",
+    "schedule": "every 10 minutes",
+    "timeZone": "UTC",
+    "scanLimits": {
+      "aggregates": 50,
+      "deliveries": 100
+    },
+    "graceSeconds": 300,
+    "leaseClockMarginSeconds": 120
+  },
+  "workers": {
+    "push": {
+      "concurrency": 10,
+      "maxInstances": 8,
+      "minInstances": 0,
+      "timeoutSeconds": 45
+    }
+  }
+}

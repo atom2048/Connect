@@ -1,0 +1,15 @@
+{
+  "name": "connect-notification-functions",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "22"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "@google-cloud/tasks": "^5.5.0",
+    "firebase-admin": "^13.5.0",
+    "firebase-functions": "^7.3.2",
+    "web-push": "^3.6.7"
+  }
+}

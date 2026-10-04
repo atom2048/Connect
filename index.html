@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Connect — つながりを、もっと軽く。</title>
+
+  <script>
+    (() => {
+      try {
+        const saved = localStorage.getItem('connect-theme') || localStorage.getItem('theme');
+        const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.dataset.theme = saved === 'light' || saved === 'dark' ? saved : (dark ? 'dark' : 'light');
+      } catch {
+        document.documentElement.dataset.theme = window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+    })();
+  </script>
+
+  <!-- SEO -->
+  <meta name="description" content="Connectは、見つけやすく、読みやすく、迷わずつながれるSNSです。">
+  <meta name="keywords" content="SNS, 無料SNS, ソーシャルネットワーク, 友達, コミュニケーション, 写真共有, 動画共有, 日本製SNS, ソーシャルメディア, Connect">
+  <meta name="robots" content="index, follow">
+
+  <!-- OGP -->
+  <meta property="og:title" content="Connect — つながりを、もっと軽く。">
+  <meta property="og:description" content="見つけやすく、読みやすく、迷わずつながれるSNS。">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="/">
+  <meta property="og:image" content="/connect-icon.png">
+  <meta property="og:site_name" content="Connect">
+  <meta property="og:locale" content="ja_JP">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Connect — つながりを、もっと軽く。">
+  <meta name="twitter:description" content="見つけやすく、読みやすく、迷わずつながれるSNS。">
+  <meta name="twitter:image" content="/connect-icon.png">
+
+  <!-- hreflang -->
+
+  <!-- JSON-LD Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Connect",
+    "description": "見つけやすく、読みやすく、迷わずつながれるSNS。",
+    "url": "/",
+    "applicationCategory": "SocialNetworking",
+    "inLanguage": ["ja", "en"]
+  }
+  </script>
+
+  <!-- Google Search Console (要: 所有権確認後にタグを追加) -->
+  <!-- <meta name="google-site-verification" content="YOUR_VERIFICATION_CODE"> -->
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="/connect-icon-192.png">
+  <link rel="apple-touch-icon" href="/connect-icon-192.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+
+  <!-- Theme color -->
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="module" src="/src/react/main.tsx"></script>
+</body>
+</html>

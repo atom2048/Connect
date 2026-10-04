@@ -1,0 +1,73 @@
+{
+  "capturedAt": "2026-08-20T12:00:31.970Z",
+  "productionUrl": "https://sns-app-ashen.vercel.app/",
+  "source": {
+    "frontend": "Vite SPA + vanilla TypeScript",
+    "frontendRuntimeDependencies": ["Firebase Auth", "Firestore", "Firebase Storage", "Firebase App Check"],
+    "apiRuntime": "Vercel Functions",
+    "backgroundRuntime": "Firebase Functions v2 + Cloud Tasks",
+    "pushRuntime": "Vercel API + Firebase Admin + Web Push/VAPID",
+    "searchRuntime": "Firestore-derived postSearchIndex + Vercel API"
+  },
+  "production": {
+    "document": {
+      "status": 200,
+      "ttfbMs": { "p50": 19.7, "p95": 248.8 },
+      "totalMs": { "p50": 21.4, "p95": 261.7 },
+      "bodyBytesAfterNodeFetchDecompression": 4332,
+      "cache": "HIT"
+    },
+    "apiSamples": [
+      {
+        "path": "/api/search/ready",
+        "status": 200,
+        "samples": 8,
+        "ttfbMs": { "p50": 180.1, "p95": 300.0 },
+        "totalMs": { "p50": 180.7, "p95": 301.5 },
+        "responseBytes": 14
+      },
+      {
+        "path": "/api/news",
+        "status": 200,
+        "samples": 8,
+        "ttfbMs": { "p50": 15.1, "p95": 68.0 },
+        "totalMs": { "p50": 18.5, "p95": 71.3 },
+        "responseBytesAfterNodeFetchDecompression": 33855
+      }
+    ],
+    "initialJavaScript": {
+      "files": 4,
+      "bodyBytesAfterNodeFetchDecompression": 701546,
+      "contentEncoding": "br"
+    },
+    "initialCss": {
+      "files": 1,
+      "bodyBytesAfterNodeFetchDecompression": 139768,
+      "contentEncoding": "br"
+    },
+    "feedImageSample": {
+      "uniqueAssets": 7,
+      "bodyBytes": 5235818,
+      "note": "Observed feed image URLs fetched individually; Node fetch reports decompressed body bytes. Several legacy original profile/post files are multi-megabyte PNG/JPEG assets."
+    },
+    "dbReads": {
+      "status": "NOT_MEASURED",
+      "note": "Firebase Console/billing telemetry was not available in this workspace; code audit found feed enrichment and viewer-state reads that must be replaced by D1 joins."
+    },
+    "webVitals": {
+      "lcpMs": null,
+      "inpMs": null,
+      "cls": null,
+      "status": "NOT_MEASURED",
+      "note": "The connected browser's read-only evaluation scope does not expose PerformanceObserver. Lighthouse was attempted, but no local Chrome installation is available. This is retained as an explicit missing baseline, not a fabricated value."
+    }
+  },
+  "auditNotes": {
+    "publicPostCorpusFromPriorEvidence": 478,
+    "eligiblePublicPostsFromPriorEvidence": 432,
+    "legacyProductionRollback": "dpl_8AQihFZvhRhWmynGDMV9b9ms1Pzn",
+    "currentLegacyProductionDeployment": "dpl_3ear2nvb7pT6E92NqPaJjmrxbX7A",
+    "firebaseProject": "connect-b5e82",
+    "vercelProject": "sns-app"
+  }
+}

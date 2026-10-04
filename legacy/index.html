@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <script>
+    (() => {
+      try {
+        const saved = localStorage.getItem('connect-theme') || localStorage.getItem('theme');
+        const dark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+        document.documentElement.dataset.theme = saved === 'light' || saved === 'dark'
+          ? saved
+          : (dark ? 'dark' : 'light');
+      } catch {
+        document.documentElement.dataset.theme = window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+    })();
+  </script>
+  <title>Connect - 無料SNS｜友達とつながる新しいコミュニティ</title>
+
+  <meta name="description" content="Connectは無料で使えるSNSです。友達とつながり、写真や動画を共有し、コミュニケーションをもっと楽しく。シンプルで使いやすい日本製SNSプラットフォーム。">
+  <meta name="keywords" content="SNS, 無料SNS, ソーシャルネットワーク, 友達, コミュニケーション, 写真共有, 動画共有, 日本製SNS, ソーシャルメディア, Connect">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://sns-app-ashen.vercel.app/">
+
+  <meta property="og:title" content="Connect - 無料SNS｜友達とつながる新しいコミュニティ">
+  <meta property="og:description" content="Connectは無料で使えるSNS。友達とつながり、写真や動画を共有しよう。シンプルで使いやすい日本製SNS。">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://sns-app-ashen.vercel.app/">
+  <meta property="og:image" content="https://sns-app-ashen.vercel.app/connect-icon.png">
+  <meta property="og:site_name" content="Connect">
+  <meta property="og:locale" content="ja_JP">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Connect - 無料SNS｜友達とつながる新しいコミュニティ">
+  <meta name="twitter:description" content="Connectは無料で使えるSNS。友達とつながり、写真や動画を共有しよう。">
+  <meta name="twitter:image" content="https://sns-app-ashen.vercel.app/connect-icon.png">
+
+  <link rel="alternate" hreflang="ja" href="https://sns-app-ashen.vercel.app/">
+  <link rel="alternate" hreflang="en" href="https://sns-app-ashen.vercel.app/?lang=en">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Connect",
+    "description": "無料で使える日本製SNS。友達とつながり、写真や動画を共有できるソーシャルネットワーク。",
+    "url": "https://sns-app-ashen.vercel.app/",
+    "applicationCategory": "SocialNetworking",
+    "inLanguage": ["ja", "en"]
+  }
+  </script>
+
+  <link rel="icon" type="image/png" href="/connect-icon-192.png">
+  <link rel="apple-touch-icon" href="/connect-icon-192.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="preconnect" href="https://firestore.googleapis.com">
+  <link rel="preconnect" href="https://identitytoolkit.googleapis.com">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <script>
+    window.__connectInitialLoadBootError = function() {
+      var gate = document.getElementById('initial-load-gate');
+      if (!gate || gate.dataset.status !== 'loading') return false;
+      gate.dataset.status = 'error';
+      gate.dataset.errorCode = 'BOOT_ERROR';
+      gate.setAttribute('aria-busy', 'false');
+      var status = gate.querySelector('.initial-load-message');
+      var error = gate.querySelector('.initial-load-error');
+      var retry = gate.querySelector('.initial-load-retry');
+      if (status) status.textContent = '読み込みに失敗しました';
+      if (error) { error.hidden = false; error.textContent = 'アプリを読み込めませんでした。'; }
+      if (retry) { retry.hidden = false; retry.onclick = function() { window.location.reload(); }; }
+      console.error('[ConnectStartup] Boot error', { errorType: 'application' });
+      return true;
+    };
+    window.onerror = function() {
+      if (window.__connectInitialLoadBootError()) return true;
+      var app = document.getElementById('app');
+      if (app) app.innerHTML = '<div style="padding:20px;color:red"><h3>読み込みに失敗しました</h3><p>予期しないエラーが発生しました。ページを再読み込みしてください。</p></div>';
+      console.error('[ConnectStartup] Unhandled browser error', { errorType: 'application' });
+      return true;
+    };
+    window.addEventListener('unhandledrejection', function(event) {
+      if (window.__connectInitialLoadBootError()) {
+        event.preventDefault();
+        return;
+      }
+      var app = document.getElementById('app');
+      if (app) app.innerHTML = '<div style="padding:20px;color:red"><h3>読み込みに失敗しました</h3><p>予期しない非同期エラーが発生しました。ページを再読み込みしてください。</p></div>';
+      console.error('[ConnectStartup] Unhandled promise rejection', { errorType: 'application' });
+    });
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="../src/main.ts"></script>
+</body>
+</html>

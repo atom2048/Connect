@@ -1,0 +1,65 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "connect-social-standalone",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-08-20",
+  "compatibility_flags": ["nodejs_compat", "enable_request_signal"],
+  "vars": {
+    "AI_UI_ENABLED": "true",
+    "AI_GENERATION_ENABLED": "true",
+    "AI_TEXT_READY": "true",
+    "AI_VISION_READY": "true",
+    "AI_ADMIN_ONLY": "false",
+    "AI_ENVIRONMENT": "production",
+    "AI_ROLLOUT_PERCENT": "100",
+    "CONNECT_ALLOWED_ORIGINS": "https://sns-app-ashen.vercel.app",
+    "FIREBASE_PROJECT_ID": "connect-b5e82"
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "invocation_logs": false,
+      "persist": true
+    }
+  },
+  "d1_databases": [
+  {
+    "binding": "DB",
+    "database_name": "connect-social",
+    "database_id": "f6c1e716-15a8-4c71-80ed-19fab967aa44",
+    "migrations_dir": "drizzle"
+  }
+],
+"r2_buckets": [
+  {
+    "binding": "MEDIA",
+    "bucket_name": "connect-social-media"
+  }
+],
+"images": {
+  "binding": "IMAGES"
+},
+"durable_objects": {
+    "bindings": [
+      { "name": "AI_COORDINATOR", "class_name": "AIRequestCoordinator" },
+      { "name": "AI_CONTROL_PLANE", "class_name": "OpenRouterAccountControlPlane" }
+    ]
+  },
+  "migrations": [
+    { "tag": "ask-ai-v1", "new_sqlite_classes": ["AIRequestCoordinator", "OpenRouterAccountControlPlane"] }
+  ],
+  "ratelimits": [
+    { "name": "AI_INTERACTION_LIMITER", "namespace_id": "1001", "simple": { "limit": 5, "period": 60 } }
+  ],
+  "triggers": { "crons": ["17 */4 * * *"] },
+  "queues": {
+    "producers": [
+      { "binding": "PUSH_QUEUE", "queue": "connect-push" }
+    ],
+    "consumers": [
+      { "queue": "connect-push", "max_batch_size": 10, "max_batch_timeout": 30 }
+    ]
+  }
+}

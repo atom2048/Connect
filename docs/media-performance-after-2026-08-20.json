@@ -1,0 +1,13 @@
+{
+  "capturedAt": "2026-08-20T14:36:00+09:00",
+  "sample": "Production /api/feed?mode=recommended&limit=20",
+  "mediaObjects": 11,
+  "beforeBytes": 5235818,
+  "afterBytes": 1771499,
+  "reductionPercent": 66.2,
+  "optimization": {
+    "candidates": 139,
+    "optimizedWebp": 124,
+    "preservedBecauseSourceInvalid": 15
+  }
+}

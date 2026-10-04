@@ -1,0 +1,41 @@
+{
+  "buildCommand": "npm run build:vercel",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/media/:path*", "destination": "https://connect-social-standalone.quest-live.workers.dev/media/:path*" },
+    { "source": "/api/ai/:path*", "destination": "https://connect-social-standalone.quest-live.workers.dev/api/ai/:path*" },
+    { "source": "/api/posts/:postId/ask-ai", "destination": "https://connect-social-standalone.quest-live.workers.dev/api/posts/:postId/ask-ai" },
+    { "source": "/api/posts/:postId/ai-consent", "destination": "https://connect-social-standalone.quest-live.workers.dev/api/posts/:postId/ai-consent" },
+    { "source": "/api/profiles/:profileId/ask-ai", "destination": "https://connect-social-standalone.quest-live.workers.dev/api/profiles/:profileId/ask-ai" },
+    { "source": "/api/profiles/:profileId", "destination": "https://connect-social-standalone.quest-live.workers.dev/api/profiles/:profileId" },
+    { "source": "/api/admin/:path*", "destination": "https://connect-social-standalone.quest-live.workers.dev/api/admin/:path*" },
+    { "source": "/api/:path*", "destination": "https://connect-social-standalone.quest-live.workers.dev/api/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+        { "key": "Service-Worker-Allowed", "value": "/" }
+      ]
+    },
+    {
+      "source": "/manifest.webmanifest",
+      "headers": [
+        { "key": "Content-Type", "value": "application/manifest+json" },
+        { "key": "Cache-Control", "value": "public, max-age=3600" }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-XSS-Protection", "value": "1; mode=block" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    }
+  ]
+}
