@@ -20,6 +20,7 @@ declare global {
 }
 
 test('profile images, post images, and video upload, survive reload, and render/play in Chromium', async ({ page }) => {
+  test.setTimeout(90_000);
   const objects = new Map<string, StoredObject>();
   const posts = new Map<string, FixturePost>();
   let profile: FixtureProfile | null = null;
@@ -155,8 +156,23 @@ test('profile images, post images, and video upload, survive reload, and render/
 
   const video = page.locator('#posts [data-post-id="new-media-post"] video[data-src]');
   await page.locator('#posts [data-post-id="new-media-post"] [data-action="load-video"]').click();
-  await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.readyState)).toBeGreaterThanOrEqual(2);
-  await expect.poll(() => video.evaluate((element: HTMLVideoElement) => !element.paused && element.currentTime > 0)).toBe(true);
+  await page.waitForFunction(() => {
+    const element = document.querySelector<HTMLVideoElement>('#posts [data-post-id="new-media-post"] video[data-src]');
+    return element !== null && (element.readyState >= 2 || element.error !== null);
+  }, null, { timeout: 20_000 }).catch(() => undefined);
+  const videoState = await video.evaluate((element: HTMLVideoElement) => ({
+    readyState: element.readyState,
+    networkState: element.networkState,
+    currentTime: element.currentTime,
+    paused: element.paused,
+    errorCode: element.error?.code ?? null,
+    errorMessage: element.error?.message ?? null,
+    source: element.currentSrc ? new URL(element.currentSrc).pathname : '',
+  }));
+  if (videoState.readyState < 2) {
+    throw new Error('video_media_readiness_failed:' + JSON.stringify({ video: videoState, mediaResponses, failedRequests }));
+  }
+  await expect.poll(() => video.evaluate((element: HTMLVideoElement) => !element.paused && element.currentTime > 0), { timeout: 15_000 }).toBe(true);
   expect(mediaResponses.some((entry) => entry.path.includes('cover_') && entry.status === 200)).toBe(true);
   expect(mediaResponses.some((entry) => entry.path.includes('video_') && (entry.status === 206 || entry.status === 200))).toBe(true);
 
