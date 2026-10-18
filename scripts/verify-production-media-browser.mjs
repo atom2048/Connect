@@ -7,15 +7,24 @@ const profileId = process.env.MEDIA_PRODUCTION_PROFILE_ID || 'WGnVUjprzOZz3sHoAT
 const videoPostId = process.env.MEDIA_PRODUCTION_VIDEO_POST_ID || 'H2wlnmbFr8XGMXSq2Rma';
 const outputDir = 'test-results/production-media-browser';
 const mediaResponses = [];
+const apiResponses = [];
+const failedRequests = [];
 
 const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage({ viewport: { width: 1365, height: 1000 } });
   page.on('response', response => {
     const url = new URL(response.url());
+    if (url.origin === baseURL && url.pathname.startsWith('/api/')) {
+      apiResponses.push({ status: response.status(), method: response.request().method(), path: url.pathname });
+    }
     if (url.origin === baseURL && (url.pathname.startsWith('/media/') || url.pathname.startsWith('/api/posts/') || url.pathname.startsWith('/api/profiles/'))) {
       mediaResponses.push({ status: response.status(), method: response.request().method(), path: url.pathname });
     }
+  });
+  page.on('requestfailed', request => {
+    const url = new URL(request.url());
+    if (url.origin === baseURL) failedRequests.push({ method: request.method(), path: url.pathname, error: request.failure()?.errorText || 'request_failed' });
   });
   await mkdir(outputDir, { recursive: true });
 
@@ -40,6 +49,9 @@ try {
   });
   assert.ok(profileProof.avatarWidth > 0, 'production profile avatar did not load');
   assert.ok(profileProof.coverBackgroundLoaded, 'production profile cover background is missing');
+  // Profile hero media loads before the profile feed request. Wait for the
+  // real existing posts before looking for lazy-loaded post images.
+  await page.locator('#profile-content .post-card').first().waitFor({ state: 'visible', timeout: 30000 });
   await page.screenshot({ path: `${outputDir}/profile-top.png` });
 
   // Trigger native lazy image loading while staying on the same read-only profile.
@@ -67,6 +79,7 @@ try {
     const avatar = document.querySelector('.profile-avatar-img');
     return avatar instanceof HTMLImageElement && avatar.complete && avatar.naturalWidth > 0;
   }, null, { timeout: 30000 });
+  await page.locator('#profile-content .post-card').first().waitFor({ state: 'visible', timeout: 30000 });
   const profileAfterReload = await page.locator('.profile-avatar-img').evaluate(image => ({ width: image.naturalWidth, path: new URL(image.currentSrc).pathname }));
   assert.ok(profileAfterReload.width > 0, 'profile avatar failed after reload');
 
@@ -112,6 +125,16 @@ try {
   };
   await writeFile(`${outputDir}/proof.json`, `${JSON.stringify(proof, null, 2)}\n`);
   console.log(JSON.stringify(proof));
+} catch (error) {
+  console.error(JSON.stringify({
+    event: 'production_media_browser_failed',
+    baseURL,
+    reason: error instanceof Error ? error.message : String(error),
+    apiResponses: apiResponses.slice(-30),
+    mediaResponses: mediaResponses.slice(-30),
+    failedRequests,
+  }));
+  throw error;
 } finally {
   await browser.close();
 }
