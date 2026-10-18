@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
+import { classifyMediaEvidenceRoute, safeBrowserFailureReason, safeMediaFailureEvidence, safeMediaResponseEvidence } from './media-proof-redaction.mjs';
 
-const baseURL = (process.env.MEDIA_PRODUCTION_BASE_URL || 'https://sns-app-ashen.vercel.app').replace(/\/$/, '');
+const baseURL = new URL(process.env.MEDIA_PRODUCTION_BASE_URL || 'https://sns-app-ashen.vercel.app').origin;
 const profileId = process.env.MEDIA_PRODUCTION_PROFILE_ID || 'WGnVUjprzOZz3sHoATD16qrjV8D2';
 const videoPostId = process.env.MEDIA_PRODUCTION_VIDEO_POST_ID || 'H2wlnmbFr8XGMXSq2Rma';
 const outputDir = 'test-results/production-media-browser';
@@ -19,15 +20,15 @@ try {
   page.on('response', response => {
     const url = new URL(response.url());
     if (url.origin === baseURL && url.pathname.startsWith('/api/')) {
-      apiResponses.push({ status: response.status(), method: response.request().method(), path: url.pathname });
+      apiResponses.push(safeMediaResponseEvidence({ status: response.status(), method: response.request().method(), path: url.pathname }));
     }
     if (url.origin === baseURL && (url.pathname.startsWith('/media/') || url.pathname.startsWith('/api/posts/') || url.pathname.startsWith('/api/profiles/'))) {
-      mediaResponses.push({ status: response.status(), method: response.request().method(), path: url.pathname });
+      mediaResponses.push({ ...safeMediaResponseEvidence({ status: response.status(), method: response.request().method(), path: url.pathname }), path: url.pathname });
     }
   });
   page.on('requestfailed', request => {
     const url = new URL(request.url());
-    if (url.origin === baseURL) failedRequests.push({ method: request.method(), path: url.pathname, error: request.failure()?.errorText || 'request_failed' });
+    if (url.origin === baseURL) failedRequests.push(safeMediaFailureEvidence({ method: request.method(), path: url.pathname, error: request.failure()?.errorText }));
   });
   await mkdir(outputDir, { recursive: true });
 
@@ -38,7 +39,7 @@ try {
     const avatar = document.querySelector('.profile-avatar-img');
     return avatar instanceof HTMLImageElement && avatar.complete && avatar.naturalWidth > 0;
   }, null, { timeout: 30000 });
-  const profileProof = await page.evaluate(() => {
+  const profileDetails = await page.evaluate(() => {
     const avatar = document.querySelector('.profile-avatar-img');
     const cover = document.querySelector('.profile-cover');
     const backgroundImage = cover ? getComputedStyle(cover).backgroundImage : '';
@@ -50,8 +51,14 @@ try {
       coverBackgroundLoaded: Boolean(coverURL),
     };
   });
-  assert.ok(profileProof.avatarWidth > 0, 'production profile avatar did not load');
-  assert.ok(profileProof.coverBackgroundLoaded, 'production profile cover background is missing');
+  assert.ok(profileDetails.avatarWidth > 0, 'production profile avatar did not load');
+  assert.ok(profileDetails.coverBackgroundLoaded, 'production profile cover background is missing');
+  const profileProof = {
+    avatarRoute: classifyMediaEvidenceRoute(profileDetails.avatarPath),
+    avatarWidth: profileDetails.avatarWidth,
+    coverRoute: classifyMediaEvidenceRoute(profileDetails.coverPath),
+    coverBackgroundLoaded: profileDetails.coverBackgroundLoaded,
+  };
   // Profile hero media loads before the profile feed request. Wait for the
   // real existing posts before looking for lazy-loaded post images.
   await page.locator('#profile-content .post-card').first().waitFor({ state: 'visible', timeout: 30000 });
@@ -66,13 +73,17 @@ try {
     if (found) break;
   }
   const postImage = page.locator('img[src*="/media/posts/"]:visible');
-  const loadedPostImage = await postImage.evaluateAll(images => {
+  const postImageDetails = await postImage.evaluateAll(images => {
     const image = images.find(item => item.complete && item.naturalWidth > 0);
     if (!image) return null;
     image.scrollIntoView({ block: 'center' });
     return { path: new URL(image.currentSrc).pathname, width: image.naturalWidth };
   });
-  assert.ok(loadedPostImage?.width > 0, 'no existing profile post image loaded in production');
+  assert.ok(postImageDetails?.width > 0, 'no existing profile post image loaded in production');
+  const loadedPostImage = {
+    route: classifyMediaEvidenceRoute(postImageDetails.path),
+    width: postImageDetails.width,
+  };
   await page.waitForTimeout(250);
   await page.screenshot({ path: `${outputDir}/existing-post-image.png` });
 
@@ -110,8 +121,9 @@ try {
   assert.ok(videoAfterReload.readyState >= 2 && !videoAfterReload.paused && videoAfterReload.currentTime > 0, 'production video did not play after reload');
   await page.screenshot({ path: `${outputDir}/existing-video-playing.png` });
 
-  const coverResponse = mediaResponses.find(item => item.path === profileProof.coverPath && item.status === 200);
-  const postImageResponse = mediaResponses.find(item => item.path === loadedPostImage.path && item.status === 200);
+  const videoRoute = classifyMediaEvidenceRoute(videoAfterReload.path);
+  const coverResponse = mediaResponses.find(item => item.path === profileDetails.coverPath && item.status === 200);
+  const postImageResponse = mediaResponses.find(item => item.path === postImageDetails.path && item.status === 200);
   const videoRangeResponses = mediaResponses.filter(item => item.path === videoAfterReload.path && item.status === 206);
   assert.ok(coverResponse, 'profile cover did not return HTTP 200');
   assert.ok(postImageResponse, 'existing post image did not return HTTP 200');
@@ -120,24 +132,26 @@ try {
   const proof = {
     event: 'production_media_browser_passed',
     baseURL,
-    profile: { ...profileProof, reloadAvatarWidth: profileAfterReload.width },
+    profile: { ...profileProof, reloadAvatarWidth: profileAfterReload.width, reloadAvatarLoaded: profileAfterReload.width > 0 },
     existingPostImage: loadedPostImage,
-    existingVideo: { path: videoAfterReload.path, readyState: videoAfterReload.readyState, paused: videoAfterReload.paused, currentTime: videoAfterReload.currentTime, rangeResponses: videoRangeResponses.length },
-    expectedPrivateMedia: mediaResponses.filter(item => item.status === 404 && item.path.startsWith('/media/posts/')).map(item => item.path),
-    screenshots: ['profile-top.png', 'existing-post-image.png', 'existing-video-playing.png'],
+    existingVideo: { route: videoRoute, readyState: videoAfterReload.readyState, paused: videoAfterReload.paused, played: videoAfterReload.currentTime > 0, rangeResponses: videoRangeResponses.length },
+    expectedPrivateMedia404Count: mediaResponses.filter(item => item.status === 404 && item.route === 'media:post').length,
+    localScreenshots: ['profile-top.png', 'existing-post-image.png', 'existing-video-playing.png'],
   };
   await writeFile(`${outputDir}/proof.json`, `${JSON.stringify(proof, null, 2)}\n`);
   console.log(JSON.stringify(proof));
 } catch (error) {
+  const reason = safeBrowserFailureReason(error);
   console.error(JSON.stringify({
     event: 'production_media_browser_failed',
     baseURL,
-    reason: error instanceof Error ? error.message : String(error),
+    reason,
     apiResponses: apiResponses.slice(-30),
-    mediaResponses: mediaResponses.slice(-30),
+    mediaResponses: mediaResponses.slice(-30).map(safeMediaResponseEvidence),
     failedRequests,
   }));
-  throw error;
+  throw new Error(reason);
 } finally {
   await browser.close();
 }
+
