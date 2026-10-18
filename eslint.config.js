@@ -19,7 +19,7 @@ export default [
     },
   },
   {
-    files: ['api/**/*.js', 'tests/**/*.js'],
+    files: ['api/**/*.js', 'tests/**/*.js', 'scripts/verify-production-media-*.mjs'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',

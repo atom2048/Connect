@@ -28,6 +28,9 @@ coverage/
 *secret*.json
 # Logs and temporary files
 *.log
+playwright-report/
+test-results/
+evidence/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

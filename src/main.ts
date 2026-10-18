@@ -14,6 +14,7 @@ import { onSnapshot, collection, query, where, limit } from 'firebase/firestore'
 import type { UserProfile } from './types/domain.ts';
 import { bindPushServiceWorkerMessages, registerConnectServiceWorker, syncExistingPushSubscription } from './pushNotifications.ts';
 import { bindVideoLongPress } from './videoLongPress.ts';
+import { bindLazyVideoLoader as bindMediaLazyVideoLoader } from './lazyVideo.ts';
 import { renderLoginPage, renderForgotPasswordPage, renderResetPasswordPage } from './pageModules/auth.ts';
 import { renderFeedPage, showAppToast } from './pageModules/home.ts';
 import { ACTIVE_NOTIFICATION_TYPES } from './notificationDomain.ts';
@@ -85,92 +86,21 @@ function toStateUserProfile(profile: ProfileRecordLike): UserProfile {
 
 
 function bindLazyVideoLoader(): void {
-  if ((window as typeof window & { __connectLazyVideoBound?: boolean }).__connectLazyVideoBound) return;
-  (window as typeof window & { __connectLazyVideoBound?: boolean }).__connectLazyVideoBound = true;
-  document.addEventListener('click', (event) => {
-    const target = event.target;
-    if (!(target instanceof Element)) return;
-    const button = target.closest<HTMLButtonElement>('[data-action="load-video"]');
-    if (!button) return;
-    event.preventDefault();
-    event.stopPropagation();
-    if (button.dataset.videoLoading === 'true') return;
-    const player = button.closest<HTMLElement>('.post-video, .comment-video');
-    const video = player?.querySelector<HTMLVideoElement>('video[data-src]');
-    const sourceURL = button.dataset.videoSrc || video?.dataset.src || '';
-    const postId = button.dataset.postId || player?.dataset.postId || video?.dataset.postId || '';
-    if (!video || !sourceURL) return;
-    button.dataset.videoLoading = 'true';
-    button.disabled = true;
-    button.setAttribute('aria-busy', 'true');
-    void (async () => {
-      const restoreButton = (label = '▶') => {
-        if (!button.isConnected) return;
-        button.textContent = label;
-        button.hidden = false;
-        button.disabled = false;
-        delete button.dataset.videoLoading;
-        button.removeAttribute('aria-busy');
-      };
-      let source = '';
-      try {
-        source = video.dataset.resolvedSrc || await prefetchPostVideoURL(postId, sourceURL);
-        if (!video.isConnected) return;
-        const resolvedSrc = new URL(source, window.location.origin).href;
-        if (video.src !== resolvedSrc || video.dataset.mediaFailed === 'true') {
-          video.dataset.mediaFailed = 'false';
-          video.src = source;
-          video.load();
-        }
-        if (video.dataset.videoErrorBound !== 'true') {
-          video.dataset.videoErrorBound = 'true';
-          video.addEventListener('error', () => {
-            video.dataset.mediaFailed = 'true';
-            const playerButton = player?.querySelector<HTMLButtonElement>('[data-action="load-video"]');
-            if (playerButton) {
-              playerButton.hidden = false;
-              playerButton.disabled = false;
-              playerButton.textContent = '↻';
-              delete playerButton.dataset.videoLoading;
-              playerButton.removeAttribute('aria-busy');
-            }
-          delete video.dataset.resolvedSrc;
-            let sourcePath = 'unknown';
-            try { const url = new URL(video.currentSrc); sourcePath = `${url.origin}${url.pathname}`; } catch { /* Keep the redacted fallback. */ }
-            console.error('[Connect] post video request failed', { postId: postId || 'unknown', mediaErrorCode: video.error?.code || 0, source: sourcePath });
-            showAppToast(t('動画を読み込めませんでした。もう一度お試しください'), 'error');
-          }, { once: true });
-        }
-        if (player) player.dataset.videoResolvedSrc = source;
-        if (video) bindVideoLongPress(video);
-        button.hidden = true;
-      } catch (error) {
-        console.error('[Connect] post video source resolution failed', { postId: postId || 'unknown', reason: error instanceof Error ? error.message : 'unknown' });
-        restoreButton();
-        showAppToast(t('動画を読み込めませんでした。もう一度お試しください'), 'error');
-        return;
-      }
-      try {
-        await video.play();
-      } catch (error) {
-        const name = error instanceof DOMException ? error.name : '';
-        if (name === 'NotAllowedError' || name === 'AbortError') {
-          // Keep the native controls available for browsers that require a
-          // second direct user gesture after the asynchronous URL lookup.
-          restoreButton();
-        } else if (!video.error) {
-          console.error('[Connect] post video playback failed', { postId: postId || 'unknown', reason: name || 'unknown' });
-          restoreButton('↻');
-          showAppToast(t('動画を読み込めませんでした。もう一度お試しください'), 'error');
-        }
-      } finally {
-        if (button.isConnected && !video.error) {
-          delete button.dataset.videoLoading;
-          button.disabled = false;
-          button.removeAttribute('aria-busy');
-        }
-      }
-    })();
+  bindMediaLazyVideoLoader(document, {
+    resolveURL: prefetchPostVideoURL,
+    bindVideoLongPress,
+    onVideoError: ({ postId, mediaErrorCode, source }) => {
+      console.error('[Connect] post video request failed', { postId, mediaErrorCode: mediaErrorCode || 0, source: source || 'unknown' });
+      showAppToast(t('動画を読み込めませんでした。もう一度お試しください'), 'error');
+    },
+    onSourceError: ({ postId, reason }) => {
+      console.error('[Connect] post video source resolution failed', { postId, reason });
+      showAppToast(t('動画を読み込めませんでした。もう一度お試しください'), 'error');
+    },
+    onPlaybackError: ({ postId, reason }) => {
+      console.error('[Connect] post video playback failed', { postId, reason });
+      showAppToast(t('動画を読み込めませんでした。もう一度お試しください'), 'error');
+    },
   });
 }
 function setTextIfPresent(target: Element | null | undefined, text: string): void {

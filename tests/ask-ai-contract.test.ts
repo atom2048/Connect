@@ -273,7 +273,9 @@ describe('Ask AI deployment invariants', () => {
   it('guards the public production flags before a standalone Worker deploy', () => {
     for (const flag of ['AI_GENERATION_ENABLED', 'AI_TEXT_READY', 'AI_VISION_READY', 'AI_ADMIN_ONLY', 'AI_ROLLOUT_PERCENT', 'AI_ENVIRONMENT']) expect(productionGuard).toContain(flag);
     expect(productionGuard).toContain("config.name !== 'connect-social-standalone'");
-    expect(packageJson).toContain('npm run ai:production:check && wrangler deploy --config wrangler.standalone.jsonc');
+    expect(packageJson).toContain('"media:predeploy": "npm run media:ci && npm run build:artifact && npm run ai:production:check"');
+    expect(packageJson).toContain('"cf:standalone:deploy": "wrangler deploy --config wrangler.standalone.jsonc"');
+    expect(readFileSync(new URL('../wrangler.standalone.jsonc', import.meta.url), 'utf8')).toContain('"command": "npm run media:predeploy"');
   });
 
   it('self-heals an expired production snapshot with one durable scheduled cooldown', () => {

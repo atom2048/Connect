@@ -14,17 +14,19 @@ describe('Connect six-fix regressions', () => {
     expect(toUserProfile({ photoURL: null, avatarURL: '/media/profiles/u/avatar.webp', coverURL: '', coverUrl: 'cover' }, 'u')).toMatchObject({ photoURL: '/media/profiles/u/avatar.webp', coverURL: 'cover' });
   });
   it('uses the latest Worker profile projection and persists both images through authenticated R2', async () => {
-    const [client, profile, vercel] = await Promise.all([
+    const [client, mediaUpload, profile, vercel] = await Promise.all([
       readFile(new URL('../src/db.ts', import.meta.url), 'utf8'),
+      readFile(new URL('../src/mediaUpload.ts', import.meta.url), 'utf8'),
       readFile(new URL('../src/pageModules/profile.ts', import.meta.url), 'utf8'),
       readFile(new URL('../vercel.json', import.meta.url), 'utf8').then(JSON.parse),
     ]);
     expect(client).toContain("?includePosts=false");
-    expect(client).toContain("method: 'PUT'");
-    expect(client).toContain("Authorization: `Bearer ${await user.getIdToken()}`");
+    expect(client).toContain('uploadProfileImageWithToken(file, uid, kind, await user.getIdToken())');
     expect(client).toContain("patch.coverUrl = updateData.coverURL");
-    expect(client).toContain('const key = `profiles/${uid}/${kind}_');
-    expect(client).toContain('payload.url.startsWith(`/media/profiles/${uid}/`)');
+    expect(mediaUpload).toContain("method: 'PUT'");
+    expect(mediaUpload).toContain("Authorization: 'Bearer ' + token");
+    expect(mediaUpload).toContain("const key = 'profiles/' + uid + '/' + kind + '_'");
+    expect(mediaUpload).toContain("url.pathname.startsWith('/media/profiles/' + uid + '/')");
     expect(profile).toContain('getDisplayUserProfile(targetUid)');
     expect(profile).toContain('profile.coverURL || profile.coverPhotoPreviewURL || profile.coverImage');
     expect(vercel.rewrites).toContainEqual({

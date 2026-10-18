@@ -46,7 +46,7 @@ describe('notification allowlist parity', () => {
     expect(source).toContain("return logSkipped('skipped', LEGACY_NOTIFICATION_TYPES.has(notification.type) ? 'feature_disabled'");
   });
 
-  it('keeps subscription endpoint status checks out of URLs and offers stale repair only with granted permission', async () => {
+  it('keeps new subscription status checks in POST bodies while retaining validated GET compatibility', async () => {
     const client = await readFile(new URL('../src/pushNotifications.ts', import.meta.url), 'utf8');
     const api = await readFile(new URL('../api/push-subscriptions.js', import.meta.url), 'utf8');
     expect(client).toContain("body: JSON.stringify({ action: 'status', endpoint: subscription.endpoint })");
@@ -54,7 +54,9 @@ describe('notification allowlist parity', () => {
     expect(client).toContain("Notification.permission !== 'granted'");
     expect(client).toContain("serverState.subscriptionStatus === 'stale' || serverState.subscriptionStatus === 'missing'");
     expect(api).toContain("req.body?.action === 'status'");
-    expect(api).not.toContain('req.query?.endpoint');
+    expect(api).toContain('req.query?.endpoint');
+    expect(api).toContain('if (endpoint && !validEndpoint(endpoint))');
+    expect(api).toContain("collection.where('userId', '==', user.sub)");
     expect(api).toContain("endpoint: FieldValue.delete()");
     expect(api).toContain("subscriptionStatusFor(doc.data(), user.sub) === 'active'");
     const functions = await readFile(new URL('../functions/index.js', import.meta.url), 'utf8');

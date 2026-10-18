@@ -1,3 +1,5 @@
+import { escapeHtml } from './utils.ts';
+
 export interface AvatarSourceProfile {
   photoURL?: unknown;
   photoUrl?: unknown;
@@ -24,6 +26,17 @@ const avatarFields: (keyof AvatarSourceProfile)[] = [
   'photoURL', 'photoUrl', 'avatarUrl', 'avatarURL', 'profilePhotoPreviewURL', 'profileImage', 'iconUrl', 'iconURL',
   'avatar', 'avatar_url', 'image', 'imageUrl', 'image_url', 'photo', 'photo_url', 'profile_image', 'picture',
 ];
+
+export function renderProfileCoverHTML(coverURL: string | null | undefined, color: string | null | undefined, label = 'カバー画像を拡大'): string {
+  const url = typeof coverURL === 'string' ? coverURL.trim() : '';
+  const fallback = typeof color === 'string' && color ? color : '#6366f1';
+  const imageStyle = url
+    ? 'url(' + escapeHtml(url) + ') center/cover'
+    : 'linear-gradient(135deg, ' + escapeHtml(fallback) + ', ' + escapeHtml(fallback + '88') + ')';
+  return '<div class="profile-cover' + (url ? ' profile-media-clickable' : '') + '"' +
+    (url ? ' data-profile-media="' + escapeHtml(url) + '" role="button" tabindex="0" aria-label="' + escapeHtml(label) + '"' : '') +
+    ' style="background: ' + imageStyle + '"></div>';
+}
 
 export function hasConfiguredAvatarImage(profile: AvatarSourceProfile | null | undefined): boolean {
   return Boolean(resolveAvatarURL(profile));

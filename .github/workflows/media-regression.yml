@@ -1,0 +1,39 @@
+name: Connect release gate
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: connect-release-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  media-regression:
+    name: Required release gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Run full release-blocking checks
+        run: npm run media:release-gate
+      - name: Save browser traces and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: connect-release-gate-${{ github.run_id }}
+          path: |
+            test-results/media-browser/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14

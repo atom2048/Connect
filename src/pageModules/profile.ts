@@ -3,7 +3,7 @@ import { getState, setState } from '../state.ts';
 import { attachmentDisplayURL } from '../attachments.ts';
 import { escapeHtml, formatTime, formatRelativeTime, getFirebaseErrorMessage, isIndexError, getFirestoreIndexUrl, normalizeProfileBio } from '../utils.ts';
 import { t } from '../i18n.ts';
-import { resolveAvatarURL } from '../avatar.ts';
+import { renderProfileCoverHTML, resolveAvatarURL } from '../avatar.ts';
 import { disablePushNotifications, enablePushNotifications, getPushStatus, type PushStatus } from '../pushNotifications.ts';
 import { APP_ICON_PATH } from '../config.ts';
 import {
@@ -375,8 +375,7 @@ export async function renderProfilePage(params: ProfilePageParams = {}): Promise
   const container = document.getElementById('page-content');
   container.innerHTML = `
     <div class="profile-page">
-      <div class="profile-cover ${coverURL ? 'profile-media-clickable' : ''}" ${coverURL ? `data-profile-media="${escapeHtml(coverURL)}" role="button" tabindex="0" aria-label="${t('カバー画像を拡大')}"` : ''} style="background: ${coverURL ? `url(${escapeHtml(coverURL)}) center/cover` : `linear-gradient(135deg, ${color}, ${color}88)`}">
-      </div>
+      ${renderProfileCoverHTML(coverURL, color, t('カバー画像を拡大'))}
       <div class="profile-info">
         <div class="profile-avatar-wrapper">
           ${createAvatarHTML(profile as unknown as Partial<UserProfile>, 104, { imageClassName: 'profile-avatar-img', fallbackClassName: 'profile-avatar-fallback', mediaClickable: Boolean(photoURL), mediaLabel: t('プロフィール画像を拡大') })}
