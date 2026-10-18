@@ -38,9 +38,13 @@ describe('production media evidence redaction', () => {
     expect(JSON.stringify(evidence)).not.toContain('secret');
   });
 
-  it('does not expose arbitrary browser error messages in monitor logs', () => {
-    const error = new Error('failed at https://sns-app.example/media/posts/private-account/private-video.mp4');
-    expect(safeBrowserFailureReason(error)).toBe('Error');
+  it('retains a safe network error code while dropping URLs from browser failures', () => {
+    const error = new Error('page.goto: net::ERR_CONNECTION_RESET at https://sns-app.example/media/posts/private-account/private-video.mp4');
+    const reason = safeBrowserFailureReason(error);
+
+    expect(reason).toBe('Error:ERR_CONNECTION_RESET');
+    expect(reason).not.toContain('private-account');
+    expect(reason).not.toContain('private-video.mp4');
   });
 });
 

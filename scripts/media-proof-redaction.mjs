@@ -30,7 +30,24 @@ export function safeMediaFailureEvidence({ method, path, error }) {
 }
 
 export function safeBrowserFailureReason(error) {
-  if (error instanceof Error && /^[A-Za-z][A-Za-z0-9]*$/.test(error.name)) return error.name;
-  return 'BrowserCheckError';
+  const name = error instanceof Error && /^[A-Za-z][A-Za-z0-9]*$/.test(error.name) ? error.name : 'BrowserCheckError';
+  const message = error instanceof Error ? error.message : String(error || '');
+  const networkError = message.match(/\bnet::([A-Z0-9_]+)/);
+  if (networkError) return `${name}:${networkError[1]}`;
+  if (/\btimeout\b/i.test(message)) return `${name}:timeout`;
+
+  const knownReasons = [
+    'production profile avatar did not load',
+    'production profile cover background is missing',
+    'no existing profile post image loaded in production',
+    'profile avatar failed after reload',
+    'production video did not play',
+    'production video did not play after reload',
+    'profile cover did not return HTTP 200',
+    'existing post image did not return HTTP 200',
+    'existing video did not return HTTP 206 Range responses',
+  ];
+  const reason = knownReasons.find(candidate => message.includes(candidate));
+  return reason ? `${name}:${reason}` : `${name}:browser_check_failed`;
 }
 

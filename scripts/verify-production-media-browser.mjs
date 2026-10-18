@@ -141,15 +141,16 @@ try {
   await writeFile(`${outputDir}/proof.json`, `${JSON.stringify(proof, null, 2)}\n`);
   console.log(JSON.stringify(proof));
 } catch (error) {
+  const reason = safeBrowserFailureReason(error);
   console.error(JSON.stringify({
     event: 'production_media_browser_failed',
     baseURL,
-    reason: safeBrowserFailureReason(error),
+    reason,
     apiResponses: apiResponses.slice(-30),
     mediaResponses: mediaResponses.slice(-30).map(safeMediaResponseEvidence),
     failedRequests,
   }));
-  throw error;
+  throw new Error(reason);
 } finally {
   await browser.close();
 }
