@@ -10,7 +10,10 @@ const mediaResponses = [];
 const apiResponses = [];
 const failedRequests = [];
 
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  headless: true,
+  ...(process.env.MEDIA_CHROMIUM_EXECUTABLE ? { executablePath: process.env.MEDIA_CHROMIUM_EXECUTABLE } : {}),
+});
 try {
   const page = await browser.newPage({ viewport: { width: 1365, height: 1000 } });
   page.on('response', response => {
