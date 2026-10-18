@@ -37,7 +37,7 @@
     "design:check": "npm run design:lint && npm run design:export",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.worker.json --noEmit && tsc -p tsconfig.legacy.json --noEmit",
     "typecheck:legacy": "tsc -p tsconfig.legacy.json --noEmit",
-    "lint": "eslint src/react src/avatar.ts src/mediaUpload.ts src/postMediaLookup.ts src/lazyVideo.ts worker db tests scripts/verify-production-media-health.mjs scripts/verify-production-media-browser.mjs",
+    "lint": "eslint src/react src/avatar.ts src/mediaUpload.ts src/postMediaLookup.ts src/lazyVideo.ts worker db tests scripts/media-proof-redaction.mjs scripts/verify-production-media-health.mjs scripts/verify-production-media-browser.mjs",
     "test": "vitest run",
     "media:e2e:server": "vite --config vite.config.media-e2e.ts",
     "media:e2e": "playwright test --config playwright.config.ts",
@@ -84,3 +84,4 @@
     "wrangler": "4.124.0"
   }
 }
+
