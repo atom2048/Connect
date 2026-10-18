@@ -1,0 +1,56 @@
+name: Connect production media monitor
+
+on:
+  schedule:
+    - cron: '13,43 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: connect-production-media-monitor
+  cancel-in-progress: false
+
+jobs:
+  production-media:
+    name: Production Worker, D1, R2, and browser media
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Check Cloudflare Worker, D1, R2, and Vercel rewrite
+        id: health
+        run: node scripts/verify-production-media-health.mjs
+        continue-on-error: true
+      - name: Verify production profile, post, and video media in Chromium
+        id: browser
+        run: npm run media:production-browser
+        continue-on-error: true
+      - name: Fail monitor when a production check fails
+        if: always()
+        env:
+          HEALTH_OUTCOME: ${{ steps.health.outcome }}
+          BROWSER_OUTCOME: ${{ steps.browser.outcome }}
+        run: |
+          printf 'health=%s\nbrowser=%s\n' "$HEALTH_OUTCOME" "$BROWSER_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$HEALTH_OUTCOME" != success ] || [ "$BROWSER_OUTCOME" != success ]; then
+            exit 1
+          fi
+      - name: Save production browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: connect-production-media-${{ github.run_id }}
+          # The production browser run captures real profile/post media. Keep
+          # those screenshots local to the runner and publish only its
+          # metadata proof so user images are not copied into Actions artifacts.
+          path: test-results/production-media-browser/proof.json
+          if-no-files-found: ignore
+          retention-days: 14
