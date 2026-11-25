@@ -1,3 +1,6 @@
 User-agent: *
 Allow: /
-Sitemap: /sitemap.xml
+Disallow: /api/
+Disallow: /media/
+
+Sitemap: https://sns-app-ashen.vercel.app/sitemap.xml
